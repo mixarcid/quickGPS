@@ -5,6 +5,8 @@
 
 class QuickGPS {
 
+ public:
+  
   struct Data {
     //UNIX time in milliseconds
     uint64_t time;
@@ -14,7 +16,6 @@ class QuickGPS {
     bool lock;
   };
   
- public:
   QuickGPS(HardwareSerial* _serial);
   bool begin();
   /*
@@ -27,6 +28,9 @@ class QuickGPS {
   static bool parseUblox(const char* str, Data* data);
   
  private:
+  
+  const static int NMEA_BUFF_SIZE = 1024;
+  
   HardwareSerial* serial;
   char nmea_buffer[NMEA_BUFF_SIZE];
   int cur_buff_index;

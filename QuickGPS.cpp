@@ -3,6 +3,8 @@
 #include "stdlib.h"
 #include <time.h>
 
+QuickGPS::NMEA_BUFF_SIZE = 1024;
+
 QuickGPS::QuickGPS(HardwareSerial* _serial)
   : serial(_serial), cur_buff_index(0) {
   data.lock = true;
