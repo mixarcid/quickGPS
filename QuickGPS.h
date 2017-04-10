@@ -1,6 +1,7 @@
 #ifndef QUICK_GPS_H
 #define QUICK_GPS_H
 
+#include <stdint.h>
 #include <Arduino.h>
 
 class QuickGPS {
