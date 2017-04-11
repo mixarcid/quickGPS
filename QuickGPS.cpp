@@ -7,7 +7,7 @@ const int QuickGPS::NMEA_BUFF_SIZE;
 
 QuickGPS::QuickGPS(HardwareSerial* _serial)
   : serial(_serial), cur_buff_index(0) {
-  data.lock = true;
+  data.lock = false;
 }
 
 bool QuickGPS::begin() {
@@ -185,9 +185,9 @@ bool QuickGPS::parseUblox(const char* str, QuickGPS::Data* data) {
   
   //assume the data doesn't work.
   //if everything checks out copying
-  //new_data to data will remove the lock
-  data->lock = true;
-  new_data.lock = false;
+  //new_data to data will set the lock
+  data->lock = false;
+  new_data.lock = true;
 
   char* tok_str = strdup(str);
   char* sub;
