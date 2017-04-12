@@ -15,13 +15,25 @@ bool QuickGPS::begin() {
   return true;
 }
 
+//Set maximum time so that we can quit in case serial takes too long
+const static long MAX_MILLIS = 2;
 bool QuickGPS::update() {
+  
   bool ret = false;
+  long cur_millis = millis();
+  long prev_millis = cur_millis;
+  
   while (serial->available()) {
+
+    cur_millis = millis();
+    if (cur_millis - prev_millis > MAX_MILLIS)
+      break;
+    
     if (cur_buff_index >= NMEA_BUFF_SIZE) {
       //Serial.println("OVERFLOW");
       cur_buff_index = 0;
     }
+    
     char in = serial->read();
     if (in == '\n') {
       nmea_buffer[cur_buff_index++] = '\0';
@@ -32,6 +44,7 @@ bool QuickGPS::update() {
     } else {
       nmea_buffer[cur_buff_index++] = in;
     }
+    
   }
   return ret;
 }
