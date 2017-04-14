@@ -26,8 +26,7 @@ bool QuickGPS::update() {
   while (serial->available()) {
 
     cur_millis = millis();
-    if (cur_millis - prev_millis > MAX_MILLIS)
-      break;
+    if (cur_millis - prev_millis > MAX_MILLIS){break;}
     
     if (cur_buff_index >= NMEA_BUFF_SIZE) {
       //Serial.println("OVERFLOW");
@@ -202,7 +201,8 @@ bool QuickGPS::parseUblox(const char* str, QuickGPS::Data* data) {
   data->lock = false;
   new_data.lock = true;
 
-  char* tok_str = strdup(str);
+  char tok_str[NMEA_BUFF_SIZE];
+  strcpy(tok_str, str);
   char* sub;
   index = 0;
   while((sub = strsep(&tok_str,",")) != NULL) {
