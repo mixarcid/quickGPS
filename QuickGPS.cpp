@@ -205,7 +205,8 @@ bool QuickGPS::parseUblox(const char* str, QuickGPS::Data* data) {
   strcpy(tok_str, str);
   char* sub;
   index = 0;
-  while((sub = strsep(&tok_str,",")) != NULL) {
+  char* tok_ptr = tok_str;
+  while((sub = strsep(&tok_ptr,",")) != NULL) {
     switch(type) {
       
     case GLL:
