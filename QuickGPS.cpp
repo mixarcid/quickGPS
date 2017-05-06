@@ -3,28 +3,80 @@
 #include "stdlib.h"
 #include <time.h>
 
+typedef enum {
+  GLL,
+  GGA,
+  RMC
+} NMEAType;
+
+typedef enum {
+  RATE = 40,
+  CONFIG = 41
+} PubxType;
+
+typedef enum {
+  IN_UBX = 1,
+  IN_NMEA = 2
+} ConfigInProto;
+
+typedef enum {
+  OUT_UBX = 1,
+  OUT_NMEA = 2
+} ConfigOutProto;
+
 const int QuickGPS::NMEA_BUFF_SIZE;
 
 QuickGPS::QuickGPS(HardwareSerial* _serial)
-  : serial(_serial), cur_buff_index(0) {
+  : serial(_serial),
+    cur_buff_index(0),
+    no_lock_messages(0) {
   data.lock = false;
+}
+
+void QuickGPS::appendChecksum(char* msg) {
+  unsigned char cs = 0;
+  //start at 1 to ignore the '$'
+  for (int i=1; msg[i] != '\0' && i < QuickGPS::NMEA_BUFF_SIZE; ++i) {
+    cs ^= msg[i];
+  }
+  char msg_cpy[NMEA_BUFF_SIZE];
+  strcpy(msg_cpy, msg);
+  sprintf(msg, "%s*%02X", msg_cpy, cs);
+}
+
+void QuickGPS::enableMsg(const char* msg, bool enable) {
+  char out[QuickGPS::NMEA_BUFF_SIZE];
+  sprintf(out, "$PUBX,40,%s,%d,0,0,0,0,0\r\n", msg, enable ? 1 : 0);
+  appendChecksum(out);
+  serial->print(out);
+}
+
+void QuickGPS::sendConfig() {
+  char out[QuickGPS::NMEA_BUFF_SIZE];
+  sprintf(out, "$PUBX,41,1,%04d,%04d,9600,0\r\n", IN_NMEA, OUT_NMEA);
+  appendChecksum(out);
+  serial->print(out);
+  enableMsg("RMC", true);
+  enableMsg("VTG", false);
+  enableMsg("GSV", false);
+  enableMsg("GSA", false);
 }
 
 bool QuickGPS::begin() {
   serial->begin(9600);
+  sendConfig();
   return true;
 }
 
 //Set maximum time so that we can quit in case serial takes too long
-const static long MAX_MILLIS = 2;
+const static int MAX_MILLIS = 2;
+const static int MAX_NO_LOCK_MSGS = 20;
 bool QuickGPS::update() {
   
   bool ret = false;
   long cur_millis = millis();
   long prev_millis = cur_millis;
-  
   while (serial->available()) {
-
     cur_millis = millis();
     if (cur_millis - prev_millis > MAX_MILLIS)
       break;
@@ -35,12 +87,24 @@ bool QuickGPS::update() {
     }
     
     char in = serial->read();
+    
     if (in == '\n') {
       nmea_buffer[cur_buff_index++] = '\0';
       cur_buff_index = 0;
       //Serial.print("NMEA string: ");
       //Serial.println(nmea_buffer);
-      ret = parseUblox(nmea_buffer, &data);
+      ret = parseNMEA(nmea_buffer, &data);
+
+      if (no_lock_messages > MAX_NO_LOCK_MSGS) {
+	//Serial.println("Sending poke!");
+	sendConfig();
+	no_lock_messages = 0;
+      } else if (data.lock) {
+	no_lock_messages = 0;
+      } else {
+	++no_lock_messages;
+      }
+      
     } else {
       nmea_buffer[cur_buff_index++] = in;
     }
@@ -158,13 +222,7 @@ static bool parseDate(const char* str, struct tm* time) {
   return true;
 }
 
-typedef enum {
-  GLL,
-  GGA,
-  RMC
-} NMEAType;
-
-bool QuickGPS::parseUblox(const char* str, QuickGPS::Data* data) {
+bool QuickGPS::parseNMEA(const char* str, QuickGPS::Data* data) {
 
   struct tm time;
   uint64_t millis_offset = 0;
@@ -174,9 +232,9 @@ bool QuickGPS::parseUblox(const char* str, QuickGPS::Data* data) {
   if (str[0] != '$') return false;
   
   //start by verifying checksum
-  char checksum = 0x00;
+  unsigned char checksum = 0x00;
   int index = 0;
-  while (str[++index] != '\0' && str[index] != '*') {
+  while (str[++index] != '\0' && str[index] != '*' && index < QuickGPS::NMEA_BUFF_SIZE) {
     checksum ^= str[index];
   }
   char given_check = strtol(str + index + 1, NULL, 16);
@@ -309,3 +367,4 @@ bool QuickGPS::parseUblox(const char* str, QuickGPS::Data* data) {
   *data = new_data;
   return true;
 }
+
